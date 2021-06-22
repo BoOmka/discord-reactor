@@ -1,6 +1,9 @@
 import pytest
 
-from helpers import get_message_id_from_id_or_url
+from helpers import (
+    get_message_id_from_id_or_url,
+    prepare_text,
+)
 
 
 class TestGetMessageIdFromIdOrUrl:
@@ -33,3 +36,19 @@ class TestGetMessageIdFromIdOrUrl:
         # act & assert
         with pytest.raises(ValueError):
             get_message_id_from_id_or_url(message_id_or_url)
+
+
+@pytest.mark.parametrize(
+    "source, expected",
+    (
+        ("Hello There", "hellothere"),
+        ("123onetwothree4", "onetwothree"),
+        ("Why are we there? Just to suffer?", "whyarewetherejusttosuffer")
+    )
+)
+def test_prepare_text(source, expected):
+    # act
+    result = prepare_text(source)
+
+    # assert
+    assert result == expected

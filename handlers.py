@@ -6,7 +6,10 @@ import discord
 import discord_slash
 
 import config
-from helpers import get_message_id_from_id_or_url
+from helpers import (
+    get_message_id_from_id_or_url,
+    prepare_text,
+)
 
 
 class CharToEmojiConverter:
@@ -54,10 +57,10 @@ class CharToEmojiConverter:
         for char in self._text:
             try:
                 emoji: str = next(self.default_emoji_iterators[char])
-            except StopIteration:
+            except (StopIteration, KeyError):
                 try:
                     emoji: str = next(self.custom_emoji_iterators[char])
-                except StopIteration:
+                except (StopIteration, KeyError):
                     continue
             print(emoji)
             yield emoji
@@ -73,7 +76,7 @@ class CharToEmojiConverter:
 async def react(ctx: discord_slash.SlashContext, text: str, message_id_or_url: str) -> None:
     await ctx.defer(hidden=True)
 
-    text = text.lower()
+    text = prepare_text(text)
 
     if message_id_or_url:
         try:
