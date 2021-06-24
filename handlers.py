@@ -37,10 +37,11 @@ class CharToEmojiConverter:
 
         custom_emoji_dict = defaultdict(list)
         for char, count in missing_char_count_dict.items():
+            _emoji = config.CHARS_TO_EMOJIS_MAP[char]
             for _ in range(count):
-                with open(f"emojis/{config.CHARS_TO_EMOJIS_MAP[char].file}", "rb") as f:
+                with open(f"emojis/{_emoji.file}", "rb") as f:
                     emoji: discord.Emoji = await self._ctx.guild.create_custom_emoji(
-                        name=f"reactor_{char}",
+                        name=f"reactor_{_emoji.char}",
                         image=f.read(),
                     )
                 self.custom_emojis.append(emoji)
