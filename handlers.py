@@ -102,4 +102,4 @@ async def _react(ctx: discord_slash.SlashContext, text: str, message_id: int) ->
         for emoji in converter.emoji_seq():
             coros.append(message.add_reaction(emoji))
         await asyncio.gather(*coros)
-    await ctx.send(content="done", hidden=True)
+    await ctx.send(content=f"Cleaned up your text and reacted with: ```{text}```", hidden=True)
