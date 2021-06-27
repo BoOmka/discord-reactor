@@ -42,8 +42,12 @@ class TestGetMessageIdFromIdOrUrl:
     "source, expected",
     (
         ("Hello There", "hellothere"),
-        ("123onetwothree4", "onetwothree"),
-        ("Why are we there? Just to suffer?", "whyarewetherejusttosuffer")
+        ("123onetwothree4", "123onetwothree4"),
+        (r"!@#$%^&*()", r"!#*"),  # unknown chars cleanup
+        ("Why are we there? Just to suffer?", "whyarewethere?justto"),  # complex testcase
+        ("1234567890123456789012345", "12345678901234567890"),  # over char limit
+        ("12345", "12345"),  # lower than char limit
+        ("12345678901234567890", "12345678901234567890"),  # equal to char limit
     )
 )
 def test_prepare_text(source, expected):
