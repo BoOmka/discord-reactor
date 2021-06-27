@@ -5,7 +5,7 @@ import typing as t
 @dataclass
 class Emoji:
     """
-    Emojie dataclass allows to associate char with corresponding default emojies
+    Emoji dataclass allows to associate char with corresponding default emojies
     and a file containing image for duplicated characters.
     """
     char: str
