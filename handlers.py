@@ -17,8 +17,8 @@ class CharToEmojiConverter:
         self._text = text
         self._ctx = ctx
         self.default_emoji_iterators: t.Dict[str, t.Iterator[str]] = {
-            k: iter(v)
-            for k, v in config.CHARS_TO_REGIONAL_INDICATORS_MAP.items()
+            k: iter(v.emojis)
+            for k, v in config.CHARS_TO_EMOJIS_MAP.items()
         }
         self.custom_emojis: t.List[discord.Emoji] = []
         self.custom_emoji_iterators: t.Dict[str, t.Iterator[str]] = {}
@@ -32,15 +32,16 @@ class CharToEmojiConverter:
         for char, count in counter_dict.items():
             if char not in self.default_emoji_iterators:
                 continue
-            if (missing_char_count := count - len(config.CHARS_TO_REGIONAL_INDICATORS_MAP[char])) > 0:
+            if (missing_char_count := count - len(config.CHARS_TO_EMOJIS_MAP[char].emojis)) > 0:
                 missing_char_count_dict[char] = missing_char_count
 
         custom_emoji_dict = defaultdict(list)
         for char, count in missing_char_count_dict.items():
+            _emoji = config.CHARS_TO_EMOJIS_MAP[char]
             for _ in range(count):
-                with open(f"emojis/{char}.png", "rb") as f:
+                with open(f"emojis/{_emoji.file}", "rb") as f:
                     emoji: discord.Emoji = await self._ctx.guild.create_custom_emoji(
-                        name=f"reactor_{char}",
+                        name=f"reactor_{_emoji.char}",
                         image=f.read(),
                     )
                 self.custom_emojis.append(emoji)
@@ -101,4 +102,4 @@ async def _react(ctx: discord_slash.SlashContext, text: str, message_id: int) ->
         for emoji in converter.emoji_seq():
             coros.append(message.add_reaction(emoji))
         await asyncio.gather(*coros)
-    await ctx.send(content="done", hidden=True)
+    await ctx.send(content=f"Cleaned up your text and reacted with: ```{text}```", hidden=True)
