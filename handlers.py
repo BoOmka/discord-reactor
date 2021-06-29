@@ -83,15 +83,20 @@ async def react(ctx: discord_slash.SlashContext, text: str, message_id_or_url: s
         try:
             message_id = get_message_id_from_id_or_url(message_id_or_url)
         except ValueError:
-            await ctx.send(content='Wrong message ID or URL format')
+            await ctx.send(content='Wrong message ID or URL format', hidden=True)
             return
     else:
-        message_id = ctx.channel.last_message_id
+        try:
+            last_message = (await ctx.channel.history(limit=1).flatten())[0]
+            message_id = last_message.id
+        except KeyError:
+            await ctx.send("No messages to react to", hidden=True)
+            return
 
     try:
         await _react(ctx, text, message_id)
     except:
-        await ctx.send("Unexpected error occured")
+        await ctx.send("Unexpected error occured", hidden=True)
         raise
 
 
