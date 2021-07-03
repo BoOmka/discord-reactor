@@ -32,8 +32,9 @@ class Reaction:
             self.emoji = discord.PartialEmoji(name=_emoji.emojis[self.n])
             return
         async with aiofiles.open(f"emojis/{_emoji.file}", "rb") as f:
+            num = self.n - len(_emoji.emojis)
             self.emoji: discord.Emoji = await self._ctx.guild.create_custom_emoji(
-                name=f"reactor_{_emoji.char}_{self.n - len(_emoji.emojis)}",
+                name=f"reactor_{_emoji.char}_{num}",
                 image=await f.read(),
             )
         print(f"Emoji '{self.emoji.name}' is ready")
