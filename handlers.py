@@ -2,6 +2,7 @@ import asyncio
 import typing as t
 from collections import defaultdict
 
+import aiofiles
 import discord
 import discord_slash
 
@@ -12,66 +13,46 @@ from helpers import (
 )
 
 
-class CharToEmojiConverter:
-    def __init__(self, ctx: discord_slash.SlashContext, text: str):
-        self._text = text
+class Reaction:
+    char: str  # char which is represented by reaction
+    n: int  # number of reaction copy
+    emoji: t.Union[discord.Emoji, discord.PartialEmoji]
+    prepare_coro: t.Awaitable[None]
+
+    def __init__(self, ctx: discord_slash.SlashContext, char: str, n: int):
         self._ctx = ctx
-        self.default_emoji_iterators: t.Dict[str, t.Iterator[str]] = {
-            k: iter(v.emojis)
-            for k, v in config.CHARS_TO_EMOJIS_MAP.items()
-        }
-        self.custom_emojis: t.List[discord.Emoji] = []
-        self.custom_emoji_iterators: t.Dict[str, t.Iterator[str]] = {}
+        self.char = char
+        self.n = n
+        self.prepare_coro = asyncio.create_task(self.prepare())
 
-    async def create_missing_emojis(self, text: str) -> None:
-        counter_dict = defaultdict(int)
-        for char in text:
-            counter_dict[char] += 1
+    async def prepare(self):
+        """Prepare emoji (native or custom) for reaction"""
+        _emoji = config.CHARS_TO_EMOJIS_MAP[self.char]
+        if self.n < len(_emoji.emojis):
+            self.emoji = discord.PartialEmoji(name=_emoji.emojis[self.n])
+            return
+        async with aiofiles.open(f"emojis/{_emoji.file}", "rb") as f:
+            num = self.n - len(_emoji.emojis)
+            self.emoji: discord.Emoji = await self._ctx.guild.create_custom_emoji(
+                name=f"reactor_{_emoji.char}_{num}",
+                image=await f.read(),
+            )
+        print(f"Emoji '{self.emoji.name}' is ready")
 
-        missing_char_count_dict = defaultdict(int)
-        for char, count in counter_dict.items():
-            if char not in self.default_emoji_iterators:
-                continue
-            if (missing_char_count := count - len(config.CHARS_TO_EMOJIS_MAP[char].emojis)) > 0:
-                missing_char_count_dict[char] = missing_char_count
+    async def react(self, wait_for_it: t.Optional[t.Awaitable], message: discord.PartialMessage):
+        """React to the message"""
+        await asyncio.wait_for(self.prepare_coro, timeout=None)
+        if wait_for_it is not None:
+            await asyncio.wait_for(wait_for_it, timeout=None)
+        await message.add_reaction(self.emoji)
+        print(f"Reacted with '{self.emoji.name}'")
+        asyncio.create_task(self.remove())
 
-        custom_emoji_dict = defaultdict(list)
-        for char, count in missing_char_count_dict.items():
-            _emoji = config.CHARS_TO_EMOJIS_MAP[char]
-            for _ in range(count):
-                with open(f"emojis/{_emoji.file}", "rb") as f:
-                    emoji: discord.Emoji = await self._ctx.guild.create_custom_emoji(
-                        name=f"reactor_{_emoji.char}",
-                        image=f.read(),
-                    )
-                self.custom_emojis.append(emoji)
-                custom_emoji_dict[char].append(str(emoji))
-        self.custom_emoji_iterators = {k: iter(v) for k, v in custom_emoji_dict.items()}
-
-    async def delete_custom_emojis(self) -> None:
-        coros = []
-        for emoji in self.custom_emojis:
-            coros.append(emoji.delete(reason="We won't need this anymore"))
-        await asyncio.gather(*coros)
-
-    def emoji_seq(self) -> t.Generator[str, None, None]:
-        for char in self._text:
-            try:
-                emoji: str = next(self.default_emoji_iterators[char])
-            except (StopIteration, KeyError):
-                try:
-                    emoji: str = next(self.custom_emoji_iterators[char])
-                except (StopIteration, KeyError):
-                    continue
-            print(emoji)
-            yield emoji
-
-    async def __aenter__(self) -> 'CharToEmojiConverter':
-        await self.create_missing_emojis(self._text)
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.delete_custom_emojis()
+    async def remove(self):
+        """Remove emoji from guild if it is custom"""
+        if isinstance(self.emoji, discord.Emoji):
+            await self.emoji.delete(reason="We won't need this anymore")
+            print(f"Custom emoji '{self.emoji.name}' removed")
 
 
 async def react(ctx: discord_slash.SlashContext, text: str, message_id_or_url: str) -> None:
@@ -102,9 +83,13 @@ async def react(ctx: discord_slash.SlashContext, text: str, message_id_or_url: s
 
 async def _react(ctx: discord_slash.SlashContext, text: str, message_id: int) -> None:
     message = ctx.bot.get_channel(ctx.channel_id).get_partial_message(message_id)
-    async with CharToEmojiConverter(ctx, text) as converter:
-        coros = []
-        for emoji in converter.emoji_seq():
-            coros.append(message.add_reaction(emoji))
-        await asyncio.gather(*coros)
+
+    counter_dict = defaultdict(int)
+    last_reaction = None
+
+    for char in text:
+        reaction = Reaction(ctx, char, counter_dict[char])
+        counter_dict[char] += 1
+        last_reaction = asyncio.create_task(reaction.react(last_reaction, message))
+
     await ctx.send(content=f"Cleaned up your text and reacted with: ```{text}```", hidden=True)
