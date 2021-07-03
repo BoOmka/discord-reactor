@@ -19,7 +19,7 @@ class Reaction:
     emoji: t.Union[discord.Emoji, discord.PartialEmoji]
     prepare_coro: t.Awaitable[None]
 
-    def __init__(self, ctx: discord_slash.SlashContext, char: str, n):
+    def __init__(self, ctx: discord_slash.SlashContext, char: str, n: int):
         self._ctx = ctx
         self.char = char
         self.n = n
@@ -39,7 +39,7 @@ class Reaction:
             )
         print(f"Emoji '{self.emoji.name}' is ready")
 
-    async def react(self, wait_for_it: t.Optional[t.Awaitable], message):
+    async def react(self, wait_for_it: t.Optional[t.Awaitable], message: discord.PartialMessage):
         """React to the message"""
         await asyncio.wait_for(self.prepare_coro, timeout=None)
         if wait_for_it is not None:
